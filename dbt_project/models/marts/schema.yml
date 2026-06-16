@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: mart_daily_weather_summary
+    description: >
+      Analytics-ready daily weather summary per city. Aggregates hourly readings
+      into daily metrics including temperature ranges, precipitation totals,
+      dominant weather condition, and a comfort heat index.
+    columns:
+      - name: city
+        description: "City name"
+        tests:
+          - not_null
+      - name: record_date
+        description: "Calendar date of the aggregation"
+        tests:
+          - not_null
+      - name: avg_temp_c
+        description: "Average temperature for the day in Celsius"
+        tests:
+          - not_null
+      - name: total_precipitation_mm
+        description: "Total precipitation across 24 hours"
+      - name: hourly_records_count
+        description: "Number of hourly records contributing to this daily row"
+        tests:
+          - not_null

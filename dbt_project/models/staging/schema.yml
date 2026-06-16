@@ -1,0 +1,43 @@
+version: 2
+
+sources:
+  - name: weather_analytics
+    database: weather_analytics
+    schema: weather_analytics
+    tables:
+      - name: raw_weather
+        description: "Raw hourly weather records ingested from Open-Meteo API"
+        columns:
+          - name: city
+            description: "City name"
+          - name: recorded_at
+            description: "Hourly timestamp of the weather observation"
+          - name: temperature_c
+            description: "Temperature in degrees Celsius"
+
+models:
+  - name: stg_weather
+    description: "Cleaned and standardised hourly weather data with WMO code labels"
+    columns:
+      - name: city
+        description: "City name"
+        tests:
+          - not_null
+      - name: recorded_at
+        description: "Observation timestamp"
+        tests:
+          - not_null
+      - name: weather_description
+        description: "Human-readable weather condition derived from WMO code"
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - 'Clear Sky'
+                - 'Partly Cloudy'
+                - 'Foggy'
+                - 'Drizzle / Rain'
+                - 'Snow'
+                - 'Rain Showers'
+                - 'Thunderstorm'
+                - 'Unknown'

@@ -1,0 +1,154 @@
+
+
+x-airflow-common:
+  &airflow-common
+  build:
+    context: .
+    dockerfile: ./airflow/Dockerfile
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth"
+    CLICKHOUSE_HOST: "clickhouse"
+    CLICKHOUSE_USER: "${CLICKHOUSE_USER}"
+    CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD}"
+    # _PIP_ADDITIONAL_REQUIREMENTS: "polars"
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./scripts:/opt/airflow/scripts
+    - ./.env:/opt/airflow/.env
+    - ./ingestion:/opt/ingestion
+    - ./dbt_project:/opt/dbt_project
+  user: "${AIRFLOW_UID}:0"
+  depends_on:
+    postgres:
+      condition: service_healthy
+    clickhouse:
+      condition: service_healthy
+
+
+services:
+  postgres:
+    image: postgres:13
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - ./postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse-server
+    restart: always
+    command:
+      - /bin/bash
+      - -c
+      - |
+        sed -i 's|<!-- <listen_host>0.0.0.0</listen_host> -->|<listen_host>0.0.0.0</listen_host>|' /etc/clickhouse-server/config.xml
+        /entrypoint.sh
+    ports:
+      # Native ClickHouse protocol (for clickhouse-client)
+      - "9000:9000"
+      # HTTP interface (for web UI and HTTP clients)
+      - "8123:8123"
+      # MySQL compatibility port
+      - "9004:9004"
+      # PostgreSQL compatibility port
+      - "9005:9005"
+    volumes:
+      # Data directory
+      - ./clickhouse/data:/var/lib/clickhouse/
+      # Logs directory
+      - ./clickhouse/logs:/var/log/clickhouse-server/
+      # Configuration files
+      - ./clickhouse/config:/etc/clickhouse-server/config.d/
+      # Users configuration
+      - ./clickhouse/users:/etc/clickhouse-server/users.d/
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    environment:
+      # Database name
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+      # Default user credentials
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      # Default database
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  ingestion:
+    build: ./ingestion
+    container_name: ingestion_service
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    volumes:
+      - ./ingestion:/app
+
+  airflow-init:
+    <<: *airflow-common
+    command: bash -c "airflow db migrate && airflow users create \
+      --username admin \
+      --password admin \
+      --firstname Admin \
+      --lastname User \
+      --role Admin \
+      --email admin@example.com"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "${AIRFLOW_PORT}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+
+volumes:
+  postgres-db-volume:
+  clickhouse_data:
+  airflow_logs:
+
+networks:
+  default:
+    name: weather_pipeline_network

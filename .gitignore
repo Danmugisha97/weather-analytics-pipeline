@@ -1,0 +1,32 @@
+
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env/
+venv/
+
+#clickhouse
+/clickhouse/*
+
+
+# dbt
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+
+# Airflow
+airflow/logs/
+logs/
+
+# OS/editor
+.DS_Store
+.vscode/
+
+# Docker/local data
+*.log
+postgres-db-volume/
