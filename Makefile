@@ -7,7 +7,7 @@ help:            ## Show this help message
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
 setup:           ## Copy .env.example → .env (first-time setup)
-	cp -n .env.example .env || echo ".env already exists, skipping."
+	cp -n .env.example .env && mkdir -p airflow/logs && mkdir -p airflow/plugins || echo ".env already exists, skipping."
 	@echo "👉  Edit .env and set your passwords before running 'make up'."
 
 up:              ## Build images and start all services

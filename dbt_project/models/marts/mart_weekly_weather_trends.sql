@@ -24,7 +24,7 @@ weekly_agg AS (
         round(max(max_temp_c),    2)                 AS max_temp_c,
 
         -- precipitation
-        round(sum(total_precipitation_mm), 3)        AS total_precipitation_mm,
+        sum(total_precipitation_mm) AS total_precipitation_mm_sum,
         countIf(total_precipitation_mm > 0)          AS rainy_days,
 
         -- wind
@@ -46,7 +46,31 @@ weekly_agg AS (
 with_deltas AS (
 
     SELECT
-        *,
+        city,
+        country,
+        iso_year,
+        iso_week,
+        week_start_date,
+        
+        -- temperature
+        avg_temp_c,
+        min_temp_c,
+        max_temp_c,
+        
+        -- precipitation - apply rounding here
+        round(total_precipitation_mm_sum, 3) AS total_precipitation_mm,
+        rainy_days,
+        
+        -- wind
+        avg_wind_speed_kmh,
+        
+        -- humidity
+        avg_humidity_pct,
+        
+        -- weather
+        dominant_weather,
+        days_in_week,
+        
         -- week-over-week temperature change
         round(
             avg_temp_c
@@ -59,8 +83,8 @@ with_deltas AS (
 
         -- week-over-week precipitation change
         round(
-            total_precipitation_mm
-            - lagInFrame(total_precipitation_mm) OVER (
+            total_precipitation_mm_sum
+            - lagInFrame(total_precipitation_mm_sum) OVER (
                 PARTITION BY city ORDER BY week_start_date
                 ROWS BETWEEN 1 PRECEDING AND 1 PRECEDING
             ),
