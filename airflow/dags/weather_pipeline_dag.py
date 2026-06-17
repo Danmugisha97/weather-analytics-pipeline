@@ -12,7 +12,7 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
-import subprocess
+import os
 
 DEFAULT_ARGS = {
     "owner":            "dan",
@@ -40,16 +40,16 @@ with DAG(
         task_id="ingest_weather_data",
         bash_command="cd /opt/ingestion && python ingest.py",
         env={
-            "POSTGRES_HOST":     "postgres",
-            "POSTGRES_PORT":     "5432",
-            "POSTGRES_USER":     "pipeline_user",
-            "POSTGRES_PASSWORD": "pipeline_pass",
-            "POSTGRES_DB":       "weather_db",
-            "CLICKHOUSE_HOST":   "clickhouse",
-            "CLICKHOUSE_PORT":   "8123",
-            "CLICKHOUSE_DB":     "weather_analytics",
-            "CLICKHOUSE_USER":   "admin",
-            "CLICKHOUSE_PASSWORD": "u66w8wdsd",
+            "POSTGRES_HOST":       os.getenv("POSTGRES_HOST",     "postgres"),
+            "POSTGRES_PORT":       os.getenv("POSTGRES_PORT",     "5432"),
+            "POSTGRES_USER":       os.getenv("POSTGRES_USER",     "pipeline_user"),
+            "POSTGRES_PASSWORD":   os.getenv("POSTGRES_PASSWORD", ""),
+            "POSTGRES_DB":         os.getenv("POSTGRES_DB",       "weather_db"),
+            "CLICKHOUSE_HOST":     os.getenv("CLICKHOUSE_HOST",   "clickhouse"),
+            "CLICKHOUSE_PORT":     os.getenv("CLICKHOUSE_PORT",   "8123"),
+            "CLICKHOUSE_DB":       os.getenv("CLICKHOUSE_DB",     "weather_analytics"),
+            "CLICKHOUSE_USER":     os.getenv("CLICKHOUSE_USER",   "admin"),
+            "CLICKHOUSE_PASSWORD": os.getenv("CLICKHOUSE_PASSWORD", ""),
         },
     )
 
@@ -71,6 +71,11 @@ with DAG(
     )
 
     # ── Task 4: dbt marts layer ──────────────────────────────────────────────
+    # Runs all models in the marts/ folder:
+    #   - mart_daily_weather_summary
+    #   - mart_city_weather_profile
+    #   - mart_extreme_weather_events
+    #   - mart_weekly_weather_trends
     dbt_marts = BashOperator(
         task_id="dbt_run_marts",
         bash_command=(

@@ -6,6 +6,11 @@ models:
       Analytics-ready daily weather summary per city. Aggregates hourly readings
       into daily metrics including temperature ranges, precipitation totals,
       dominant weather condition, and a comfort heat index.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - city
+            - record_date
     columns:
       - name: city
         description: "City name"
@@ -25,3 +30,94 @@ models:
         description: "Number of hourly records contributing to this daily row"
         tests:
           - not_null
+
+  - name: mart_city_weather_profile
+    description: >
+      All-time climate profile per city. Aggregates the full observation window
+      into a single summary row per city — overall averages, record highs/lows,
+      wettest day, rainy-day frequency, and most frequent weather condition.
+      Useful as a historical baseline to contextualise current conditions.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - city
+            - country
+    columns:
+      - name: city
+        description: "City name"
+        tests:
+          - not_null
+      - name: country
+        description: "Country name"
+        tests:
+          - not_null
+      - name: overall_avg_temp_c
+        description: "Mean of daily average temperatures across the entire window"
+        tests:
+          - not_null
+      - name: all_time_max_temp_c
+        description: "Highest single-day maximum temperature recorded"
+      - name: all_time_min_temp_c
+        description: "Lowest single-day minimum temperature recorded"
+      - name: wettest_day_precipitation_mm
+        description: "Highest single-day total precipitation recorded"
+      - name: rainy_days_pct
+        description: "Percentage of observed days with any precipitation"
+      - name: most_frequent_weather
+        description: "Dominant weather condition across the full observation window"
+
+  - name: mart_extreme_weather_events
+    description: >
+      Days where at least one weather threshold was breached. Flags heatwaves,
+      cold snaps, heavy/extreme rain, high wind, thunderstorms, and high humidity.
+      Assigns a composite severity score (1–7) and a severity level label
+      (Advisory / Watch / Warning). Only rows with severity_score > 0 are included.
+    columns:
+      - name: city
+        description: "City name"
+        tests:
+          - not_null
+      - name: record_date
+        description: "Date of the extreme event"
+        tests:
+          - not_null
+      - name: severity_score
+        description: "Number of thresholds breached on this day (0–7)"
+        tests:
+          - not_null
+      - name: severity_level
+        description: "Human-readable severity label derived from the score"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Advisory', 'Watch', 'Warning']
+
+  - name: mart_weekly_weather_trends
+    description: >
+      ISO-week aggregates per city with week-over-week deltas and a 4-week
+      rolling average temperature. Enables trend analysis, anomaly detection,
+      and seasonal pattern visualisation.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - city
+            - week_start_date
+    columns:
+      - name: city
+        description: "City name"
+        tests:
+          - not_null
+      - name: week_start_date
+        description: "Monday of the ISO week"
+        tests:
+          - not_null
+      - name: avg_temp_c
+        description: "Mean of daily average temperatures for the week"
+        tests:
+          - not_null
+      - name: total_precipitation_mm
+        description: "Sum of daily precipitation for the week"
+      - name: wow_temp_delta_c
+        description: "Week-over-week change in average temperature (°C)"
+      - name: rolling_4w_avg_temp_c
+        description: "4-week rolling average temperature including the current week"

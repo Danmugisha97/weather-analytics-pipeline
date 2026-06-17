@@ -10,7 +10,7 @@ import requests
 import pandas as pd
 import psycopg2
 import clickhouse_connect
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -81,7 +81,7 @@ def fetch_weather(city: dict) -> pd.DataFrame:
         "precipitation_mm":  hourly["precipitation"],
         "wind_speed_kmh":    hourly["wind_speed_10m"],
         "weather_code":      hourly["weathercode"],
-        "ingested_at":       datetime.utcnow(),
+        "ingested_at":       datetime.now(timezone.utc).replace(tzinfo=None),
     })
     return df
 
